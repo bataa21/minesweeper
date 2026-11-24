@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1e1e2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Мина хайгч">
+<title>Мина хайгч</title>
+
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #1e1e2e; color: #fff; display: flex; flex-direction: column;
+    align-items: center; min-height: 100vh; padding: 10px; user-select: none;
+    overflow-x: hidden;
+  }
+  h1 { font-size: 22px; margin: 8px 0; color: #f5c542; display: flex; align-items: center; gap: 8px;}
+  
+  .controls { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; justify-content: center; align-items: center; }
+  button {
+    background: #3a3a5c; color: #fff; border: none; padding: 10px 16px;
+    border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; 
+    transition: background 0.15s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  button:active { background: #55557a; transform: scale(0.95); }
+  button.active { background: #f5c542; color: #1e1e2e; }
+  button.icon-btn { padding: 10px; font-size: 20px; width: 44px; height: 44px; }
+  
+  .status { display: flex; gap: 16px; font-size: 16px; margin-bottom: 12px; background: #2a2a40; padding: 8px 20px; border-radius: 10px; font-weight: 600; }
+  .status span { color: #f5c542; }
+  
+  #board { display: grid; gap: 2px; background: #444; padding: 4px; border-radius: 8px; touch-action: manipulation; position: relative; z-index: 10;}
+    /* Десктоп (Том дэлгэц) дээр харагдах байдлыг сайжруулах */
+  @media (min-width: 600px) {
+    h1 { font-size: 28px; margin-top: 20px; }
+    .status { font-size: 20px; padding: 10px 24px; margin-bottom: 20px; }
+    .msg { font-size: 22px; margin-top: 20px; }
+    .controls { margin-bottom: 20px; gap: 15px; }
+    button.icon-btn { width: 54px; height: 54px; font-size: 24px; }
+    .hint-text { font-size: 14px; margin-top: 15px; }
+    
+    /* Модал цонхыг компьютер дээр дунд нь гаргах */
+    .modal-overlay { align-items: center; }
+    .modal-content { 
+      border-radius: 20px; 
+      width: 90%; 
+      max-width: 600px;
+      transform: translateY(50px); 
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .modal-overlay.show .modal-content { transform: translateY(0); opacity: 1; }
+    .close-btn:hover { background: #444; color: #fff; }
+    button:hover { background: #55557a; }
+    button.active:hover { background: #e0b132; }
+  }
+
+  .cell {
+    width: var(--size); height: var(--size); display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: calc(var(--size) * 0.55); background: #7a7aa8; border-radius: 4px;
+    cursor: pointer; transition: background 0.1s, box-shadow 0.3s;
+  }
+  .cell:active { background: #9a9ac8; }
+  .cell.open { background: #d8d8e8; color: #1e1e2e; cursor: default; }
+  .cell.open.mine { background: #e74c3c; color: #fff; }
+  .cell.flag { background: #e8a838; }
+  .cell.hint-mine { box-shadow: inset 0 0 0 3px #e74c3c; background: #ffd0d0; }
+  .cell.hint-safe { box-shadow: inset 0 0 0 3px #2ecc71; background: #d0ffd0; }
+  .cell.hint-guess { box-shadow: inset 0 0 0 3px #f1c40f; background: #fffbd0; }
+  .c1 { color: #1976d2; } .c2 { color: #388e3c; } .c3 { color: #d32f2f; } .c4 { color: #7b1fa2; }
+  .c5 { color: #ff6f00; } .c6 { color: #00838f; } .c7 { color: #000; } .c8 { color: #555; }
+  
+  .msg { margin-top: 12px; font-size: 18px; font-weight: 700; min-height: 26px; color: #f5c542; text-align: center; z-index: 10;}
+  .hint-text { font-size: 12px; color: #888; margin-top: 6px; text-align: center; }
+
+  /* ⚙️ Модал (Тохиргооны) цонх */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: flex-end;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease; z-index: 1000;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  
+  .modal-content {
+    background: #2a2a40; width: 100%; max-width: 500px;
+    border-radius: 20px 20px 0 0; padding: 20px; padding-bottom: 40px;
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    max-height: 85vh; overflow-y: auto; position: relative;
+  }
+  .modal-overlay.show .modal-content { transform: translateY(0); }
+  
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-header h2 { margin: 0; font-size: 20px; color: #f5c542; }
+  .close-btn { background: none; font-size: 24px; color: #aaa; padding: 0; width: 36px; height: 36px; }
+  .close-btn:active { background: #444; color: #fff; }
+
+  .settings-section { margin-bottom: 25px; }
+  .settings-section h3 { margin: 0 0 12px 0; font-size: 15px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .level-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  
+  .tutorial-box {
+    background: #1e1e2e; border-radius: 12px; padding: 15px; margin-bottom: 10px;
+    border-left: 4px solid #f5c542;
+  }
+  .tutorial-box h4 { margin: 0 0 8px 0; color: #fff; font-size: 16px; display: flex; align-items: center; gap: 8px;}
+  .tutorial-box p { margin: 0; font-size: 14px; color: #ccc; line-height: 1.5; }
+
+  /* 🏆 Leaderboard хүснэгт */
+  .leaderboard-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  .leaderboard-table th, .leaderboard-table td { padding: 10px; text-align: left; border-bottom: 1px solid #444; }
+  .leaderboard-table th { color: #888; font-weight: 600; }
+  .leaderboard-table td { color: #fff; }
+  .leaderboard-table tr:last-child td { border-bottom: none; }
+
+  /* 🎊 Конфетти болон дэлбэрэлтийн эффект */
+  .confetti { position: fixed; width: 10px; height: 10px; background: #f00; pointer-events: none; z-index: 2000; }
+  .explosion { position: fixed; width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle, rgba(255,200,0,1) 0%, rgba(255,50,0,0.8) 50%, rgba(255,0,0,0) 100%); pointer-events: none; transform: translate(-50%, -50%) scale(0); z-index: 2000; animation: explode 0.5s ease-out forwards; }
+  @keyframes explode { to { transform: translate(-50%, -50%) scale(4); opacity: 0; } }
+  .screen-shake { animation: shake 0.4s; }
+  @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-5px); } 100% { transform: translateX(0); } }
+</style>
+</head>
+<body>
+
+<h1>💣 Мина хайгч</h1>
+
+<div class="controls">
+  <button id="mode-flag" class="icon-btn" title="Тэмдэглэх">🚩</button>
+  <button id="restart" class="icon-btn" title="Шинэ тоглоом">🔄</button>
+  <button id="settings-btn" class="icon-btn" title="Тохиргоо">⚙️</button>
+</div>
+
+<div class="status">
+  <div>💣 <span id="mineCount">10</span></div>
+  <div>⏱ <span id="timer">0</span></div>
+</div>
+
+<div id="board"></div>
+<div class="msg" id="message"></div>
+<div class="hint-text"> • 🟢 аюулгүй • 🔴 мина • 🟡 таамаглах</div>
+
+<!-- ⚙️ Модал Цонх -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>⚙️ Тохиргоо</h2>
+      <button class="close-btn" id="close-settings">✖</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>Түвшин</h3>
+      <div class="level-grid">
+        <button id="lvl-easy" class="active">Хялбар<br><small>8x8</small></button>
+        <button id="lvl-med">Дунд<br><small>12x12</small></button>
+        <button id="lvl-hard">Хүнд<br><small>16x16</small></button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Тусламж</h3>
+      <button id="hint-btn" style="width: 100%; background: #1976d2; padding: 12px; font-size: 16px;">💡 Зөвлөгөө авах</button>
+    </div>
+
+    <!-- 🏆 Leaderboard -->
+    <div class="settings-section">
+      <h3>🏆 Шилдэг хугацаа</h3>
+      <table class="leaderboard-table">
+        <thead>
+          <tr>
+            <th>Түвшин</th>
+            <th>Хугацаа</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <!-- JS-ээр дүүргэнэ -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="settings-section">
+      <h3>Хэрхэн тоглох вэ?</h3>
+      <div class="tutorial-box">
+        <h4>🎯 Зорилго</h4>
+        <p>Бүх мина байхгүй аюулгүй нүднүүдийг нээх. Мина дээр товших юм бол тоглоом дуусна.</p>
+      </div>
+      <div class="tutorial-box">
+        <h4>🔢 Тоонуудын утга</h4>
+        <p>Нээгдсэн нүдэн дээрх тоо нь <b>түүний эргэн тойрны 8 нүдэнд</b> хэдэн мина байгааг хэлнэ.</p>
+      </div>
+      <div class="tutorial-box">
+        <h4>🚩 Тэмдэглэгээ</h4>
+        <p>Дээд талын 🚩 товчийг идэвхжүүлээд, мина гэж бодсон нүдэн дээрээ дарж тэмдэглээрэй. Дахин дарвал арилна.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const LEVELS = {
+  easy: { rows: 8,  cols: 8,  mines: 10 },
+  med:  { rows: 12, cols: 12, mines: 22 },
+  hard: { rows: 16, cols: 16, mines: 40 }
+};
+let cfg = LEVELS.easy;
+let board = [], started = false, gameOver = false, flagsUsed = 0, openedCount = 0, timer = 0, timerId = null, flagMode = false;
+let currentLevelKey = 'easy';
+
+const boardEl = document.getElementById('board'), msgEl = document.getElementById('message'), mineCountEl = document.getElementById('mineCount'), timerEl = document.getElementById('timer');
+const settingsModal = document.getElementById('settings-modal');
+
+function sizeFor(cols) { 
+  let maxW;
+  // Хэрэв дэлгэц 600px-ээс том (Десктоп) бол илүү өргөн талбай ашиглана
+  if (window.innerWidth >= 600) {
+    maxW = Math.min(window.innerWidth - 100, 800); // Дээд талдаа 800px хүртэл өргөснө
+    const px = Math.floor((maxW - (cols - 1) * 3 - 10) / cols);
+    return Math.max(30, Math.min(px, 60)) + 'px'; // Нүдний хэмжээ 30-60px хооронд байна
+  } else {
+    // Утасны хувьд хуучин хэвээрээ
+    maxW = Math.min(window.innerWidth - 40, 480); 
+    const px = Math.floor((maxW - (cols - 1) * 2 - 8) / cols); 
+    return Math.max(24, Math.min(px, 44)) + 'px'; 
+  }
+}
+
+function init() {
+  clearInterval(timerId); timerId = null; timer = 0; timerEl.textContent = '0';
+  started = false; gameOver = false; flagsUsed = 0; openedCount = 0; flagMode = false;
+  
+  document.getElementById('mode-flag').classList.remove('active'); 
+  msgEl.textContent = ''; mineCountEl.textContent = cfg.mines;
+  document.body.classList.remove('screen-shake');
+  
+  board = []; boardEl.innerHTML = '';
+  boardEl.style.gridTemplateColumns = `repeat(${cfg.cols}, var(--size))`;
+  boardEl.style.setProperty('--size', sizeFor(cfg.cols));
+  
+  for (let r = 0; r < cfg.rows; r++) {
+    const row = [];
+    for (let c = 0; c < cfg.cols; c++) {
+      row.push({ mine: false, open: false, flag: false, adj: 0 });
+      const cell = document.createElement('div'); cell.className = 'cell'; cell.dataset.r = r; cell.dataset.c = c;
+      cell.addEventListener('click', () => handleClick(r, c));
+      cell.addEventListener('contextmenu', e => { e.preventDefault(); toggleFlag(r, c); });
+      boardEl.appendChild(cell);
+    }
+    board.push(row);
+  }
+  closeSettings();
+  updateLeaderboardUI();
+}
+
+function placeMines(safeR, safeC) {
+  let placed = 0;
+  while (placed < cfg.mines) {
+    const r = Math.floor(Math.random() * cfg.rows), c = Math.floor(Math.random() * cfg.cols);
+    if (Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1) continue;
+    if (board[r][c].mine) continue;
+    board[r][c].mine = true; placed++;
+  }
+  for (let r = 0; r < cfg.rows; r++) {
+    for (let c = 0; c < cfg.cols; c++) {
+      if (board[r][c].mine) continue;
+      let n = 0; forEachNeighbor(r, c, (nr, nc) => { if (board[nr][nc].mine) n++; });
+      board[r][c].adj = n;
+    }
+  }
+}
+
+function forEachNeighbor(r, c, fn) {
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (dr === 0 && dc === 0) continue;
+    const nr = r + dr, nc = c + dc;
+    if (nr >= 0 && nr < cfg.rows && nc >= 0 && nc < cfg.cols) fn(nr, nc);
+  }
+}
+
+function cellEl(r, c) { return boardEl.children[r * cfg.cols + c]; }
+function clearHints() { document.querySelectorAll('.cell').forEach(el => el.classList.remove('hint-mine', 'hint-safe', 'hint-guess')); }
+
+function handleClick(r, c) {
+  if (gameOver) return; 
+  msgEl.textContent = ''; 
+  clearHints(); 
+  
+  const cell = board[r][c];
+  if (flagMode) { toggleFlag(r, c); return; }
+  if (cell.flag || cell.open) return;
+  
+  if (!started) { started = true; placeMines(r, c); timerId = setInterval(() => { timer++; timerEl.textContent = timer; }, 1000); }
+  
+  if (cell.mine) { 
+    cell.open = true; 
+    cellEl(r, c).classList.add('open', 'mine'); 
+    cellEl(r, c).textContent = '💣'; 
+    lose(r, c); 
+    return; 
+  }
+  
+  floodOpen(r, c); checkWin();
+}
+
+function floodOpen(r, c) {
+  const stack = [[r, c]];
+  while (stack.length) {
+    const [cr, cc] = stack.pop(); const cell = board[cr][cc];
+    if (cell.open || cell.flag) continue;
+    cell.open = true; openedCount++; const el = cellEl(cr, cc); el.classList.add('open');
+    if (cell.adj > 0) { el.textContent = cell.adj; el.classList.add('c' + cell.adj); }
+    else { forEachNeighbor(cr, cc, (nr, nc) => { if (!board[nr][nc].open && !board[nr][nc].flag) stack.push([nr, nc]); }); }
+  }
+}
+
+function toggleFlag(r, c) {
+  if (gameOver) return; 
+  msgEl.textContent = ''; 
+  clearHints(); 
+  
+  const cell = board[r][c]; 
+  if (cell.open) return; 
+  const el = cellEl(r, c);
+  
+  if (!cell.flag) { 
+    if (flagsUsed >= cfg.mines) return; 
+    cell.flag = true; flagsUsed++; el.classList.add('flag'); el.textContent = '🚩'; 
+  } else { 
+    cell.flag = false; flagsUsed--; el.classList.remove('flag'); el.textContent = ''; 
+  }
+  mineCountEl.textContent = cfg.mines - flagsUsed;
+}
+
+function lose(bombR, bombC) {
+  gameOver = true; clearInterval(timerId);
+  
+  // 💥 Дэлбэрэлтийн эффект үүсгэх
+  const bombEl = cellEl(bombR, bombC);
+  const rect = bombEl.getBoundingClientRect();
+  createExplosion(rect.left + rect.width/2, rect.top + rect.height/2);
+  document.body.classList.add('screen-shake');
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+  for (let r = 0; r < cfg.rows; r++) for (let c = 0; c < cfg.cols; c++) {
+    const cell = board[r][c], el = cellEl(r, c);
+    if (cell.mine && !cell.flag) { el.classList.add('open', 'mine'); el.textContent = '💣'; }
+    else if (!cell.mine && cell.flag) { el.textContent = '❌'; }
+  }
+  msgEl.textContent = '💥 Тоглоом дууслаа! Дахин оролдоно уу.';
+}
+
+function checkWin() {
+  const totalSafe = cfg.rows * cfg.cols - cfg.mines;
+  if (openedCount === totalSafe) {
+    gameOver = true; clearInterval(timerId);
+    for (let r = 0; r < cfg.rows; r++) for (let c = 0; c < cfg.cols; c++) {
+      if (board[r][c].mine && !board[r][c].flag) { cellEl(r, c).classList.add('flag'); cellEl(r, c).textContent = '🚩'; }
+    }
+    
+    // 🏆 Leaderboard-д хадгалах
+    saveHighScore(currentLevelKey, timer);
+    
+    // 🎊 Конфетти
+    fireConfetti();
+    
+    msgEl.textContent = `🎉 Ялалт! Хугацаа: ${timer} сек`;
+  }
+}
+
+// ==========================================
+// 🏆 LEADERBOARD (localStorage)
+// ==========================================
+function saveHighScore(level, time) {
+  let scores = JSON.parse(localStorage.getItem('minesweeper_scores')) || {};
+  if (!scores[level] || time < scores[level]) {
+    scores[level] = time;
+    localStorage.setItem('minesweeper_scores', JSON.stringify(scores));
+  }
+}
+
+function updateLeaderboardUI() {
+  const scores = JSON.parse(localStorage.getItem('minesweeper_scores')) || {};
+  const tbody = document.getElementById('leaderboard-body');
+  tbody.innerHTML = '';
+  
+  const levelNames = { easy: 'Хялбар (8x8)', med: 'Дунд (12x12)', hard: 'Хүнд (16x16)' };
+  
+  for (const key of ['easy', 'med', 'hard']) {
+    const tr = document.createElement('tr');
+    const timeVal = scores[key] !== undefined ? `${scores[key]} сек` : '---';
+    tr.innerHTML = `<td>${levelNames[key]}</td><td style="color: #f5c542; font-weight: bold;">${timeVal}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+// ==========================================
+// 🎊 КОНФЕТТИ БОЛОН ДЭЛБЭРЭЛТ
+// ==========================================
+function createExplosion(x, y) {
+  const el = document.createElement('div');
+  el.className = 'explosion';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 600);
+}
+
+function fireConfetti() {
+  const colors = ['#f5c542', '#e74c3c', '#2ecc71', '#3498db', '#9b59b6', '#f1c40f'];
+  for (let i = 0; i < 50; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = Math.random() * 100 + 'vw';
+    confetti.style.top = '-10px';
+    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.width = Math.random() * 8 + 6 + 'px';
+    confetti.style.height = Math.random() * 8 + 6 + 'px';
+    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+    
+    document.body.appendChild(confetti);
+    
+    // Санамсаргүй чиглэлд унах
+    const duration = Math.random() * 2000 + 1500;
+    const xOffset = (Math.random() - 0.5) * 300;
+    const rotation = Math.random() * 720 - 360;
+    
+    confetti.animate([
+      { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+      { transform: `translate(${xOffset}px, 100vh) rotate(${rotation}deg)`, opacity: 0 }
+    ], {
+      duration: duration,
+      easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+    }).onfinish = () => confetti.remove();
+  }
+}
+
+// ==========================================
+// ⚙️ UI БОЛОН ҮЙЛ ЯВДАЛ
+// ==========================================
+function getHint() {
+  closeSettings(); 
+  if (gameOver) return; 
+  if (!started) { msgEl.textContent = 'Эхлээд нэг нүд товшоод тоглоомыг эхлүүлнэ үү.'; return; }
+  
+  clearHints(); 
+  let foundMines = [], foundSafes = [];
+  
+  for (let r = 0; r < cfg.rows; r++) {
+    for (let c = 0; c < cfg.cols; c++) {
+      const cell = board[r][c]; if (!cell.open || cell.adj === 0) continue;
+      let neighbors = [], flagCount = 0;
+      forEachNeighbor(r, c, (nr, nc) => { const nCell = board[nr][nc]; if (nCell.flag) flagCount++; else if (!nCell.open) neighbors.push([nr, nc]); });
+      if (neighbors.length === 0) continue;
+      if (cell.adj === flagCount) neighbors.forEach(([nr, nc]) => foundSafes.push([nr, nc]));
+      else if (cell.adj === flagCount + neighbors.length) neighbors.forEach(([nr, nc]) => foundMines.push([nr, nc]));
+    }
+  }
+  
+  const uniqueMines = [...new Set(foundMines.map(JSON.stringify))].map(JSON.parse);
+  const uniqueSafes = [...new Set(foundSafes.map(JSON.stringify))].map(JSON.parse);
+  let hasHint = false;
+  
+  if (uniqueMines.length > 0) { 
+    uniqueMines.forEach(([r, c]) => cellEl(r, c).classList.add('hint-mine')); 
+    msgEl.textContent = `🔴 ${uniqueMines.length} мина олдлоо!`; hasHint = true; 
+  } 
+  else if (uniqueSafes.length > 0) { 
+    uniqueSafes.forEach(([r, c]) => cellEl(r, c).classList.add('hint-safe')); 
+    msgEl.textContent = `🟢 ${uniqueSafes.length} аюулгүй нүд байна!`; hasHint = true; 
+  }
+  if (!hasHint) {
+    for (let r = 0; r < cfg.rows; r++) for (let c = 0; c < cfg.cols; c++) { if (!board[r][c].open && !board[r][c].flag) cellEl(r, c).classList.add('hint-guess'); }
+    msgEl.textContent = '🟡 Энд логикоор шийдэх боломжгүй. Азаа үзэх хэрэгтэй!';
+  }
+}
+
+function openSettings() { 
+  updateLeaderboardUI();
+  settingsModal.classList.add('show'); 
+}
+function closeSettings() { settingsModal.classList.remove('show'); }
+
+document.getElementById('mode-flag').onclick = function() { flagMode = !flagMode; this.classList.toggle('active', flagMode); };
+document.getElementById('restart').onclick = init;
+document.getElementById('settings-btn').onclick = openSettings;
+document.getElementById('close-settings').onclick = closeSettings;
+document.getElementById('hint-btn').onclick = getHint;
+settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettings(); });
+
+function setLevel(key) {
+  currentLevelKey = key;
+  cfg = LEVELS[key]; 
+  document.querySelectorAll('.level-grid button').forEach(b => b.classList.remove('active')); 
+  document.getElementById('lvl-' + key).classList.add('active'); 
+  init(); 
+}
+
+document.getElementById('lvl-easy').onclick = () => setLevel('easy');
+document.getElementById('lvl-med').onclick  = () => setLevel('med');
+document.getElementById('lvl-hard').onclick = () => setLevel('hard');
+
+window.addEventListener('resize', () => { boardEl.style.setProperty('--size', sizeFor(cfg.cols)); });
+
+init();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
+  });
+}
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  
+  // Суулгах товчийг харуулах (жишээ нь дэлгэц дээр товч үүсгэх)
+  const installBtn = document.createElement('button');
+  installBtn.textContent = '📲 Апп суулгах';
+  installBtn.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #f5c542; color: #1e1e2e; padding: 12px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5); border: none;';
+  document.body.appendChild(installBtn);
+
+  installBtn.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        installBtn.remove();
+      }
+      deferredPrompt = null;
+    }
+  });
+});
+</script>
+</body>
+</html>

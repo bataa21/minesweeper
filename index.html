@@ -551,12 +551,10 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
       
-      // Шинэ Service Worker олдсон эсэхийг шалгах
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // Шинэ SW суусан, гэхдээ хуучин нь ажиллаж байна -> Мэдэгдэл харуулах
             const toast = document.getElementById('update-toast');
             if (toast) toast.classList.add('show');
           }
@@ -564,17 +562,32 @@ if ('serviceWorker' in navigator) {
       });
     }).catch(err => console.log('SW error:', err));
 
-    // Хэрэглэгч "Шинэчлэх" товч дарвал
+    // "Шинэчлэх" товч дээр дарах үед
     const updateBtn = document.getElementById('update-btn');
     if (updateBtn) {
-      updateBtn.addEventListener('click', () => {
-        // Бүх Service Worker-тэй холбоотой кэшийг устгах
-        caches.keys().then((keys) => {
-          keys.forEach(key => caches.delete(key));
-        }).then(() => {
-          // Хуудсыг бүрэн шинээр ачаалах
+      updateBtn.addEventListener('click', async () => {
+        updateBtn.textContent = 'Хүлээнэ үү...';
+        updateBtn.disabled = true;
+
+        try {
+          // 1. Бүх Service Worker-ийг бүртгэлээс гаргах (Unregister)
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let registration of registrations) {
+            await registration.unregister();
+          }
+
+          // 2. Бүх кэшийг устгах
+          const cacheNames = await caches.keys();
+          for (let cacheName of cacheNames) {
+            await caches.delete(cacheName);
+          }
+
+          // 3. Хуудсыг бүрэн шинээр ачаалах
           window.location.reload(true);
-        });
+        } catch (error) {
+          console.error('Алдаа:', error);
+          window.location.reload(true); // Алдаа гарсан ч ачаалж үзэх
+        }
       });
     }
   });

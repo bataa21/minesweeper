@@ -1,4 +1,4 @@
-const CACHE_NAME = 'minesweeper-mn-v1.8';
+const CACHE_NAME = 'minesweeper-mn-v1.9'; // ⚠️ Өөрчлөлт хийх бүртээ v4, v5 болгож өсгөөрэй
 const ASSETS = [
   './',
   './index.html',
@@ -7,18 +7,15 @@ const ASSETS = [
   './icon-512.png'
 ];
 
-// Суулгах үед кэшлэх
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('Кэш нээгдлээ');
       return cache.addAll(ASSETS);
     })
   );
-  self.skipWaiting();
+  self.skipWaiting(); // Шинэ SW-г даруй идэвхжүүлэх
 });
 
-// Идэвхжүүлэх үед хуучин кэшийг устгах
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -27,9 +24,9 @@ self.addEventListener('activate', (e) => {
       );
     })
   );
+  self.clients.claim(); // Нээлттэй байгаа хуудсуудыг шинэ SW-д хамруулах
 });
 
-// Файл хүсэх үед кэшээс авах
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then((response) => {

@@ -45,26 +45,7 @@
     .controls { margin-bottom: 20px; gap: 15px; }
     button.icon-btn { width: 54px; height: 54px; font-size: 24px; }
     .hint-text { font-size: 14px; margin-top: 15px; }
-      /* 🔄 Шинэчлэлийн мэдэгдэл (Toast) */
-    /* 🔄 Шинэчлэлийн мэдэгдэл (Toast) */
-  .update-toast {
-    position: fixed; bottom: 20px; left: 50%; 
-    transform: translate(-50%, 150px); /* Анхнаасаа дэлгэцээс доош нуусан */
-    background: #2a2a40; border: 2px solid #f5c542; color: #fff;
-    padding: 12px 20px; border-radius: 12px; 
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 3000; 
-    transition: transform 0.3s ease, opacity 0.3s ease; 
-    opacity: 0; pointer-events: none;
-  }
-  .update-toast.show { 
-    transform: translate(-50%, 0); /* Гарах үедээ дээшээ гарч ирнэ */
-    opacity: 1; pointer-events: all;
-  }
-  .update-toast button { 
-    background: #f5c542; color: #1e1e2e; padding: 8px 16px; font-size: 14px; border-radius: 8px; 
-    font-weight: bold; cursor: pointer;
-  }
+   
     
     /* Модал цонхыг компьютер дээр дунд нь гаргах */
     .modal-overlay { align-items: center; }
@@ -574,34 +555,13 @@ if ('serviceWorker' in navigator) {
       });
     }).catch(err => console.log('SW error:', err));
 
-    // Service Worker бүртгэх болон Шинэчлэл шалгах
+    // Service Worker бүртгэх (Шинэчлэлтийн мэдэгдэлгүйгээр)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').then(reg => {
-      
-      // Шинэ Service Worker олдсон эсэхийг шалгах
-      reg.addEventListener('updatefound', () => {
-        const newWorker = reg.installing;
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // Шинэ SW суусан -> Мэдэгдэл харуулах
-            document.getElementById('update-toast').classList.add('show');
-          }
-        });
-      });
-    }).catch(err => console.log('SW error:', err));
-
-    // "Шинэчлэх" товч дээр дарахад зүгээр л хуудсыг дахин ачаална
-    document.getElementById('update-btn').addEventListener('click', () => {
-      window.location.reload();
-    });
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW error:', err));
   });
 }
 </script>
-<!-- 🔄 Шинэчлэлийн мэдэгдэл -->
-<div class="update-toast" id="update-toast">
-  <div>Шинэ хувилбар гарлаа!</div>
-  <button id="update-btn">Шинэчлэх</button>
-</div>
+
 </body>
 </html>

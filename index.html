@@ -42,6 +42,10 @@
     width: var(--size); height: var(--size); display: flex; align-items: center; justify-content: center;
     font-weight: 700; font-size: calc(var(--size) * 0.55); background: #7a7aa8; border-radius: 4px;
     cursor: pointer; transition: background 0.1s, box-shadow 0.3s;
+     /* ⬇️ ЭНЭ 3 МӨРИЙГ НЭМНЭ ҮҮ ⬇️ */
+    -webkit-touch-callout: none; 
+    -webkit-user-select: none; 
+    user-select: none;
   }
   .cell:active { background: #9a9ac8; }
   .cell.open { background: #d8d8e8; color: #1e1e2e; cursor: default; }
@@ -297,25 +301,46 @@ function init() {
       cell.addEventListener('click', () => handleClick(r, c));
       cell.addEventListener('contextmenu', e => { e.preventDefault(); toggleFlag(r, c); });
 
-      // 📱 Хүрэлтийн үйлдэл (Утас - Урт дарах)
+     
+            // 📱 Хүрэлтийн үйлдэл (Утас - Урт дарах) - ШИНЭЧИЛСЭН
       let touchTimer;
+      let startX, startY;
+
       cell.addEventListener('touchstart', (e) => {
         if (gameOver) return;
+        
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+
         touchTimer = setTimeout(() => {
           toggleFlag(r, c);
-          if (navigator.vibrate) navigator.vibrate(30); // Бага зэрэг чичиргээ
-          // Товшилтыг цуцлахын тулд туг өргөх
+          if (navigator.vibrate) navigator.vibrate(30); 
           cell.dataset.longPressed = 'true';
-        }, 400); // 400ms дарахад тэмдэглэнэ
+          window.getSelection().removeAllRanges(); // Текстийн сонголтыг арилгах
+        }, 400); 
+      }, { passive: true });
+
+      cell.addEventListener('touchmove', (e) => {
+        if (!touchTimer) return;
+        
+        // Хуруу 10 пикселээс илүү хөдөлсөн бол цуцлах (гүйлгэж байна)
+        const moveX = e.touches[0].clientX;
+        const moveY = e.touches[0].clientY;
+        if (Math.abs(moveX - startX) > 10 || Math.abs(moveY - startY) > 10) {
+          clearTimeout(touchTimer);
+          touchTimer = null;
+        }
       }, { passive: true });
 
       cell.addEventListener('touchend', (e) => {
         clearTimeout(touchTimer);
+        touchTimer = null;
+        
         if (cell.dataset.longPressed === 'true') {
-          e.preventDefault(); // Click үйлдэл рүү дамжихээс сэргийлнэ
+          e.preventDefault(); 
           cell.dataset.longPressed = 'false';
         }
-      });
+      }, { passive: false });
 
       cell.addEventListener('touchmove', () => clearTimeout(touchTimer), { passive: true });
 
@@ -356,6 +381,12 @@ function cellEl(r, c) { return boardEl.children[r * cfg.cols + c]; }
 function clearHints() { document.querySelectorAll('.cell').forEach(el => el.classList.remove('hint-mine', 'hint-safe', 'hint-guess')); }
 
 function handleClick(r, c) {
+  // ⬇️ ЭНИЙГ НЭМНЭ ҮҮ ⬇️
+  const cellElement = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+  if (cellElement && cellElement.dataset.longPressed === 'true') return;
+
+  if (gameOver) return; 
+  initAudio(); 
   if (gameOver) return; 
   initAudio(); // Дууг идэвхжүүлэх
   

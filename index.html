@@ -297,52 +297,50 @@ function init() {
       row.push({ mine: false, open: false, flag: false, adj: 0 });
       const cell = document.createElement('div'); cell.className = 'cell'; cell.dataset.r = r; cell.dataset.c = c;
       
-      // 🖱️ Хулганы үйлдэл (Десктоп)
+           // 🖱️ Хулганы үйлдэл (Десктоп)
       cell.addEventListener('click', () => handleClick(r, c));
       cell.addEventListener('contextmenu', e => { e.preventDefault(); toggleFlag(r, c); });
 
-     
-            // 📱 Хүрэлтийн үйлдэл (Утас - Урт дарах) - ШИНЭЧИЛСЭН
-      let touchTimer;
-      let startX, startY;
+      // 📱 Хүрэлтийн үйлдэл (Утас - Урт дарах) - Pointer Event
+      let touchTimer = null; // Нүд бүрт тусдаа таймер
 
-      cell.addEventListener('touchstart', (e) => {
-        if (gameOver) return;
+      cell.addEventListener('pointerdown', (e) => {
+        if (gameOver || e.pointerType === 'mouse') return; // Хулганыг алгасна
         
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-
+        cell.dataset.longPressed = 'false';
+        
         touchTimer = setTimeout(() => {
+          touchTimer = null;
+          cell.dataset.longPressed = 'true';
           toggleFlag(r, c);
           if (navigator.vibrate) navigator.vibrate(30); 
-          cell.dataset.longPressed = 'true';
-          window.getSelection().removeAllRanges(); // Текстийн сонголтыг арилгах
+          if (window.getSelection) window.getSelection().removeAllRanges();
         }, 400); 
-      }, { passive: true });
+      });
 
-      cell.addEventListener('touchmove', (e) => {
-        if (!touchTimer) return;
-        
-        // Хуруу 10 пикселээс илүү хөдөлсөн бол цуцлах (гүйлгэж байна)
-        const moveX = e.touches[0].clientX;
-        const moveY = e.touches[0].clientY;
-        if (Math.abs(moveX - startX) > 10 || Math.abs(moveY - startY) > 10) {
+      cell.addEventListener('pointerup', (e) => {
+        if (e.pointerType === 'mouse') return;
+        if (touchTimer) {
           clearTimeout(touchTimer);
           touchTimer = null;
         }
-      }, { passive: true });
+      });
 
-      cell.addEventListener('touchend', (e) => {
-        clearTimeout(touchTimer);
-        touchTimer = null;
-        
-        if (cell.dataset.longPressed === 'true') {
-          e.preventDefault(); 
-          cell.dataset.longPressed = 'false';
+      cell.addEventListener('pointercancel', (e) => {
+        if (touchTimer) {
+          clearTimeout(touchTimer);
+          touchTimer = null;
         }
-      }, { passive: false });
+      });
 
-      cell.addEventListener('touchmove', () => clearTimeout(touchTimer), { passive: true });
+      // Хуруугаа хөдөлгөж гүйлгэх үед таймерыг цуцлах
+      cell.addEventListener('pointermove', (e) => {
+        if (e.pointerType === 'mouse') return;
+        if (touchTimer) {
+          clearTimeout(touchTimer);
+          touchTimer = null;
+        }
+      });
 
       boardEl.appendChild(cell);
     }
@@ -381,12 +379,14 @@ function cellEl(r, c) { return boardEl.children[r * cfg.cols + c]; }
 function clearHints() { document.querySelectorAll('.cell').forEach(el => el.classList.remove('hint-mine', 'hint-safe', 'hint-guess')); }
 
 function handleClick(r, c) {
-  // ⬇️ ЭНИЙГ НЭМНЭ ҮҮ ⬇️
+  // ⬇️ УРТ ДАРАЛТЫГ ШАЛГАХ ⬇️
   const cellElement = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
-  if (cellElement && cellElement.dataset.longPressed === 'true') return;
+  if (cellElement && cellElement.dataset.longPressed === 'true') {
+    cellElement.dataset.longPressed = 'false'; // ⬅️ Энэ мөр дутуу байсан!
+    return; // Урт дарсан бол нээхгүй
+  }
+  // ⬆️ ЭНД ХҮРТЭЛ ⬆️
 
-  if (gameOver) return; 
-  initAudio(); 
   if (gameOver) return; 
   initAudio(); // Дууг идэвхжүүлэх
   

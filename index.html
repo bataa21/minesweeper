@@ -551,9 +551,11 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
       
+      // Шинэ хувилбар олдсон эсэхийг шалгах
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
+          // Хэрэв шинэ SW суусан бөгөөд хуучин нь ажиллаж байвал мэдэгдэл харуулах
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             const toast = document.getElementById('update-toast');
             if (toast) toast.classList.add('show');
@@ -566,28 +568,26 @@ if ('serviceWorker' in navigator) {
     const updateBtn = document.getElementById('update-btn');
     if (updateBtn) {
       updateBtn.addEventListener('click', async () => {
-        updateBtn.textContent = 'Хүлээнэ үү...';
+        updateBtn.textContent = 'Шинэчилж байна...';
         updateBtn.disabled = true;
 
         try {
-          // 1. Бүх Service Worker-ийг бүртгэлээс гаргах (Unregister)
+          // 1. SW бүртгэлээс гаргах
           const registrations = await navigator.serviceWorker.getRegistrations();
           for (let registration of registrations) {
             await registration.unregister();
           }
-
           // 2. Бүх кэшийг устгах
           const cacheNames = await caches.keys();
           for (let cacheName of cacheNames) {
             await caches.delete(cacheName);
           }
-
-          // 3. Хуудсыг бүрэн шинээр ачаалах
-          window.location.reload(true);
-        } catch (error) {
-          console.error('Алдаа:', error);
-          window.location.reload(true); // Алдаа гарсан ч ачаалж үзэх
+        } catch (e) {
+          console.log(e);
         }
+
+        // 3. Хуудсыг албадан шинээр ачаалах (Cache bypass)
+        window.location.reload(true); 
       });
     }
   });

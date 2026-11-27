@@ -294,52 +294,59 @@ function init() {
       cell.dataset.r = r; 
       cell.dataset.c = c;
       
-      // 🖱️ Хулганы үйлдэл (Десктоп)
-      cell.addEventListener('click', () => handleClick(r, c));
-      cell.addEventListener('contextmenu', e => { e.preventDefault(); toggleFlag(r, c); });
-
-      // 📱 Утасны урт дарах логик (touchstart + touchend)
+      // 🖱️ Утас болон Хулганы аль алинд нь ажиллах Pointer Event
       let touchTimer = null;
       let isLongPress = false;
 
-      cell.addEventListener('touchstart', (e) => {
+      cell.addEventListener('pointerdown', (e) => {
         if (gameOver) return;
-        isLongPress = false;
         
+        isLongPress = false;
+        // Хэрэв хулганы баруун товч эсвэл дунд товч бол алгасах
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+        // 400ms таймер эхлүүлэх
         touchTimer = setTimeout(() => {
           touchTimer = null;
           isLongPress = true;
-          // Урт даралт ажиллахад vibrate болон тэмдэглэгээ тавих
-          toggleFlag(r, c);
+          toggleFlag(r, c); // Урт даралт ажиллахад тэмдэглэгээ тавих
           if (navigator.vibrate) navigator.vibrate(30);
-          
-          // Хэрэв хөтөч текст сонгох гэж оролдвол цэвэрлэх
           if (window.getSelection) window.getSelection().removeAllRanges();
         }, 400);
-      }, { passive: true });
+      });
 
-      cell.addEventListener('touchend', (e) => {
+      cell.addEventListener('pointerup', (e) => {
+        if (gameOver) return;
+        // Хуруугаа өргөх үед таймерыг цуцлах
         if (touchTimer) {
           clearTimeout(touchTimer);
           touchTimer = null;
         }
         
-        // Хэрэв урт даралт ажилласан бол click үйлдлийг блоклох
-        if (isLongPress) {
-          e.preventDefault(); 
-          // isLongPress-ийг дараагийн click дээр ашиглахын тулд хадгална
-          cell.dataset.longPressed = 'true';
+        // Хэрэв урт даралт БИШ бол (энгийн товшилт) нүдийг нээх
+        if (!isLongPress) {
+          handleClick(r, c);
         }
-      }, { passive: false });
+      });
 
-      // Хуруугаа хөдөлгөж гүйлгэх үед таймерыг цуцлах
-      cell.addEventListener('touchmove', (e) => {
-        if (!touchTimer) return;
-        
-        // Хэрэв хуруу хөдөлсөн бол гүйлгэж байна гэж үзээд цуцлах
-        clearTimeout(touchTimer);
-        touchTimer = null;
-      }, { passive: true });
+      // Хэрэв хуруугаа хөдөлгөвөл (гүйлгэх гэж оролдвол) таймерыг цуцлах
+      cell.addEventListener('pointermove', () => {
+        if (touchTimer) {
+          clearTimeout(touchTimer);
+          touchTimer = null;
+        }
+      });
+
+      // Системээс цуцлагдвал (жишээ нь мессеж ирэх)
+      cell.addEventListener('pointercancel', () => {
+        if (touchTimer) {
+          clearTimeout(touchTimer);
+          touchTimer = null;
+        }
+      });
+
+      // Десктоп дээр баруун товч дарахад тэмдэглэх
+      cell.addEventListener('contextmenu', e => { e.preventDefault(); toggleFlag(r, c); });
 
       boardEl.appendChild(cell);
     }
@@ -378,13 +385,6 @@ function cellEl(r, c) { return boardEl.children[r * cfg.cols + c]; }
 function clearHints() { document.querySelectorAll('.cell').forEach(el => el.classList.remove('hint-mine', 'hint-safe', 'hint-guess')); }
 
 function handleClick(r, c) {
-  // ⬇️ УРТ ДАРАЛТЫГ ШАЛГАХ ⬇️
-  const cellElement = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
-  if (cellElement && cellElement.dataset.longPressed === 'true') {
-    cellElement.dataset.longPressed = 'false'; 
-    return; // Урт дарсан бол нээхгүй
-  }
-
   if (gameOver) return; 
   initAudio(); 
   

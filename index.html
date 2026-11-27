@@ -557,17 +557,26 @@ if ('serviceWorker' in navigator) {
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             // Шинэ SW суусан, гэхдээ хуучин нь ажиллаж байна -> Мэдэгдэл харуулах
-            document.getElementById('update-toast').classList.add('show');
+            const toast = document.getElementById('update-toast');
+            if (toast) toast.classList.add('show');
           }
         });
       });
     }).catch(err => console.log('SW error:', err));
 
     // Хэрэглэгч "Шинэчлэх" товч дарвал
-    document.getElementById('update-btn').addEventListener('click', () => {
-      // Хуудсыг дахин ачаална (Service Worker аль хэдийн шинэ кэшээ бэлдсэн байна)
-      window.location.reload();
-    });
+    const updateBtn = document.getElementById('update-btn');
+    if (updateBtn) {
+      updateBtn.addEventListener('click', () => {
+        // Бүх Service Worker-тэй холбоотой кэшийг устгах
+        caches.keys().then((keys) => {
+          keys.forEach(key => caches.delete(key));
+        }).then(() => {
+          // Хуудсыг бүрэн шинээр ачаалах
+          window.location.reload(true);
+        });
+      });
+    }
   });
 }
 </script>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'minesweeper-mn-v1.9'; // ⚠️ Өөрчлөлт хийх бүртээ v4, v5 болгож өсгөөрэй
+const CACHE_NAME = 'minesweeper-mn-V2.0';
 const ASSETS = [
   './',
   './index.html',
@@ -13,7 +13,7 @@ self.addEventListener('install', (e) => {
       return cache.addAll(ASSETS);
     })
   );
-  self.skipWaiting(); // Шинэ SW-г даруй идэвхжүүлэх
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
@@ -24,7 +24,7 @@ self.addEventListener('activate', (e) => {
       );
     })
   );
-  self.clients.claim(); // Нээлттэй байгаа хуудсуудыг шинэ SW-д хамруулах
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (e) => {
